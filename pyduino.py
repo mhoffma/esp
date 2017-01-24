@@ -47,9 +47,9 @@ SYSTEM_RESET = 0xFF # reset from MIDI
 # Pin modes
 DIGITAL_INPUT = 0
 DIGITAL_OUTPUT = 1
-DIGITAL_PWM = 2
+ANALOG = 2
+DIGITAL_PWM = 3
 
-PWM_PINS = (9, 10, 11)
 boards= {
     'arduino': {
         'digital': tuple(x for x in range(14)),
@@ -74,13 +74,6 @@ class Arduino:
         self.digital = [Digital(self,i) for i in self.board['digital']]
         self.analog  = [Analog(self,i) for i in self.board['analog']]
         
-#       for i in range(14):
-#           self.digital.append(Digital(self, i))
-#
-#        self.analog = []
-#        for i in range(6):
-#            self.analog.append(Analog(self, i))
-
         #Obtain firmata version
         self.write(REPORT_VERSION)
         self.iterate()
@@ -184,7 +177,7 @@ class Digital:
                                 - DIGITAL_PWM
 
         """
-        if mode == DIGITAL_PWM and self.pin not in PWM_PINS:
+        if mode == DIGITAL_PWM and self.pin not in self.sp.board['pwm']:
             error_message = "Digital pin %i does not have PWM capabilities" \
                             % (self.pin)
             raise IOError(error_message)
