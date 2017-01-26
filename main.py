@@ -1,6 +1,6 @@
 import machine
 import esp
-esp.nostdio_uart(0)
+esp.uart_nostdio(1)
 u=machine.UART(0)
 u.init(57600)
 gpio2=machine.Pin(2)
