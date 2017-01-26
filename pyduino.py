@@ -22,6 +22,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 __version__ = "0.1"
 
 import machine
+import esp
 
 class IOError(BaseException):
     def __init__(self,message):
@@ -65,6 +66,7 @@ class Arduino:
 
     def __init__(self, debug=True):
         self.sp = machine.UART(0,57600,timeout=0)
+        esp.uart_nostdio(1)
         self.board=boards['arduino']
         
         self.debug=debug
