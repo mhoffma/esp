@@ -38,7 +38,7 @@ class irrecv:
         '''compute edge to edge transition time, ignore polarity'''
         e=time.ticks_us()
         self.dbgport.high()
-        s=2*p.value()-1
+        #s=2*p.value()-1
         d=time.ticks_diff(e,self.ledge)
         self.ledge=e
         self.buf[self.wptr]=d #*s
@@ -163,8 +163,8 @@ class IRnec(nec):
         return None
     def reset(self):
         self.samples=array.array('i')        
-
-n=IRnec(irrecv(4,bsz=256,dbgport=Pin(5,Pin.OUT)))
+dbg=None # Pin(5,Pin.OUT)
+n=IRnec(irrecv(4,bsz=256,dbgport=dbg))
 def test():
     while True:
         try:
