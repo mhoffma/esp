@@ -10,9 +10,15 @@ import array
 import micropython
 micropython.alloc_emergency_exception_buf(100)
 
+class DummyPort:
+    def high(self):
+        pass
+    def low(self):
+        pass
+
 class irrecv:
     '''irrecv receive IR signal on pin into circular buffer'''
-    def __init__(self,pno=4,bsz=1024):
+    def __init__(self,pno=4,bsz=1024,dbgport=None):
         self.BUFSZ=bsz
         self.pin=pno
         self.ir=Pin(pno,Pin.IN)
@@ -20,6 +26,10 @@ class irrecv:
         self.ledge=0
         self.wptr=0
         self.rptr=0
+        self.dbgport=dbgport
+        if dbgport is None:
+            self.dbgport=DummyPort()
+        self.dbgport.low()
         self.start()
     def __repr__(self):
         return "<irrecv: {}, wptr={} rptr={}>".format(self.pin,
@@ -27,13 +37,15 @@ class irrecv:
     def timeseq_isr(self,p):
         '''compute edge to edge transition time, ignore polarity'''
         e=time.ticks_us()
+        self.dbgport.high()
         s=2*p.value()-1
         d=time.ticks_diff(e,self.ledge)
         self.ledge=e
-        self.buf[self.wptr]=d*s
+        self.buf[self.wptr]=d #*s
         self.wptr+=1
         if self.wptr >= self.BUFSZ:
             self.wptr = 0
+        self.dbgport.low()
 
     def stop(self):
         '''disable isr'''
@@ -149,9 +161,10 @@ class IRnec(nec):
                 return hex(data)
             return data
         return None
+    def reset(self):
+        self.samples=array.array('i')        
 
-
-n=IRnec(irrecv(4,bsz=256))
+n=IRnec(irrecv(4,bsz=256,dbgport=Pin(5,Pin.OUT)))
 def test():
     while True:
         try:
