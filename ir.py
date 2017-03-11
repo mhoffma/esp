@@ -5,9 +5,9 @@ Wiring any available GPIO input pin can be used, Timeline is tight with Python i
 
 '''
 from machine import Pin,Timer,disable_irq,enable_irq
-import time
-import array
+import time,array,math
 import micropython
+from time import ticks_us, ticks_diff
 micropython.alloc_emergency_exception_buf(100)
 
 class DummyPort:
@@ -19,7 +19,8 @@ class DummyPort:
 class irrecv:
     '''irrecv receive IR signal on pin into circular buffer'''
     def __init__(self,pno=4,bsz=1024,dbgport=None):
-        self.BUFSZ=bsz
+        self.BUFSZ=int(pow(2, math.ceil(math.log(bsz)/math.log(2))))
+        self.MASK=self.BUFSZ-1
         self.pin=pno
         self.ir=Pin(pno,Pin.IN)
         self.buf=array.array('i',0 for i in range(self.BUFSZ))
@@ -30,21 +31,23 @@ class irrecv:
         if dbgport is None:
             self.dbgport=DummyPort()
         self.dbgport.low()
+        # cache ticks functions for native call
+        self.ticks_diff = time.ticks_diff
+        self.ticks_us = time.ticks_us
         self.start()
     def __repr__(self):
         return "<irrecv: {}, wptr={} rptr={}>".format(self.pin,
                                                       self.wptr,self.rptr)
+    @micropython.native
     def timeseq_isr(self,p):
         '''compute edge to edge transition time, ignore polarity'''
-        e=time.ticks_us()
+        e=self.ticks_us()
         self.dbgport.high()
-        #s=2*p.value()-1
-        d=time.ticks_diff(e,self.ledge)
+        s=2*p.value()-1
+        d=self.ticks_diff(e,self.ledge)
         self.ledge=e
-        self.buf[self.wptr]=d #*s
-        self.wptr+=1
-        if self.wptr >= self.BUFSZ:
-            self.wptr = 0
+        self.buf[self.wptr]=d*s
+        self.wptr=(self.wptr+1)&self.MASK
         self.dbgport.low()
 
     def stop(self):
@@ -58,7 +61,7 @@ class irrecv:
         self.rptr=0
         enable_irq(state)
 
-    def samples(self):
+    def read(self):
         w=self.wptr
         r=self.rptr
         n=w-r
@@ -68,8 +71,6 @@ class irrecv:
             x=self.buf[r:]+self.buf[:w]
         self.rptr=w
         return x
-    def __call__(self):
-        return self.samples()
 
 class DecodeError(Exception):
     pass
@@ -150,7 +151,7 @@ class IRnec(nec):
         self.ir=ir
         self.samples=array.array('i')
     def __call__(self,debug=False):
-        self.samples=self.samples+self.ir()
+        self.samples=self.samples+self.ir.read()
         if len(self.samples):
             x=super().__call__(self.samples,debug=debug)
             if x is None:
@@ -163,7 +164,7 @@ class IRnec(nec):
         return None
     def reset(self):
         self.samples=array.array('i')        
-dbg=None # Pin(5,Pin.OUT)
+dbg=Pin(5,Pin.OUT)
 n=IRnec(irrecv(4,bsz=256,dbgport=dbg))
 def test():
     while True:
@@ -175,4 +176,3 @@ def test():
             return
         if x:
             print(x)
-
